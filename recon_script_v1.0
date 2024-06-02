@@ -1,0 +1,129 @@
+#!/bin/bash
+
+<< comment
+This handy recon tool combines a bunch of different methods 
+for finding subdomains, directories, and more. It helps you 
+get a clear picture of how a web application is set up, 
+making it easier to see the whole layout and spot any 
+potential issues.
+
+Disclaimer:
+This script is intended for educational purposes and authorized security testing only. 
+The author is not responsible for any misuse or damage caused by this tool. 
+Users are responsible for ensuring they have proper authorization before running 
+any security scans. Always verify the scope of your testing to ensure compliance 
+with relevant laws and policies.
+
+By using this tool, you agree to use it responsibly and in accordance with all 
+applicable laws and regulations. The author disclaims all liability for any actions 
+taken based on the information provided by this tool.
+comment
+
+#Declare variables
+domain=$1
+RED="\033[1;31m"
+YELLOW="\033[0;33m"
+WHITE="\033[0;37m"
+RESET="\033[0m"
+LINE="\033[0;37m----------------------------------------------------------\033[0m"
+
+#Declare domain path's 
+subdomain_path=$domain/subdomains 
+screenshot_path=$domain/screenshots
+scan_path=$domain/scans
+directory_path=$domain/directories
+
+# Initialize domain's if needed 
+if [ ! -d "$domain" ];then 
+	mkdir $domain
+fi
+
+if [ ! -d "$subdomain_path" ];then 
+	mkdir $subdomain_path
+fi
+
+if [ ! -d "$screenshot_path" ];then
+	mkdir $screenshot_path
+fi
+
+if [ ! -d "$scan_path" ];then
+	mkdir $scan_path
+fi
+
+if [ ! -d "$directory_path" ]; then
+	mkdir $directory_path
+fi
+
+# Service Enum ASCII
+echo -e "${YELLOW}
+                  _                             
+  ___ ___ _ ___ _(_)__ ___   ___ _ _ _  _ _ __  
+ (_-</ -_) '_\ V / / _/ -_) / -_) ' \ || | '  \\
+ /__/\___|_|  \_/|_\__\___| \___|_||_\_,_|_|_|_|
+${RESET}"
+echo -e "$LINE"
+
+
+# CURL Scan 
+echo -e "${WHITE} [+] Executing CURL ... ${RESET}"
+curl -I $domain > $scan_path/curl.txt
+
+# NMAP Scan (PLEASE COMPLY WITH SCOPE RULES IF USING ON A LIVE SOURCE)
+# Use refer to the NMAP manual if trying to be less intrusive 
+echo -e "${WHITE} [+] Executing NMAP ... ${RESET}"
+nmap $domain > $scan_path/nmap.txt
+
+#Break Line
+echo -e "$LINE"
+
+
+# Directory Enum ASCII
+# Feel free to use dirbuster and ffuf, I personally use ffuf /usr/share/wordlist/dirbuster/
+echo -e "${YELLOW}
+     _ _            _                                     
+  __| (_)_ _ ___ __| |_ ___ _ _ _  _   ___ _ _ _  _ _ __  
+ / _\` | | '_/ -_) _|  _/ _ \ '_| || | / -_) ' \ || | '  \\ 
+ \__,_|_|_| \___\__|\__\___/_|  \_, | \___|_||_\_,_|_|_|_|
+                                |__/
+${RESET}"
+echo -e "$LINE"
+
+#dirb scan 
+echo -e "${WHITE} [+] Executing dirb ... ${RESET}"
+#dirb https://$domain > $directory_path/dirb.txt
+
+
+# Subdomain Enumeration ASCII 
+# Feel Free to use AMASS BUT SHIT TAKES WAYYY TOO LONG 
+echo -e "${YELLOW}
+          _        _                _                           
+  ____  _| |__  __| |___ _ __  __ _(_)_ _    ___ _ _ _  _ _ __  
+ (_-< || | '_ \/ _` / _ \ '  \/ _` | | ' \  / -_) ' \ || | '  \\
+ /__/\_,_|_.__/\__,_\___/_|_|_\__,_|_|_||_| \___|_||_\_,_|_|_|_|
+${RESET}"
+echo -e "$LINE"
+
+#subfinder 
+echo -e "${WHITE} [+] Executing subfinder ... ${RESET}"
+subfinder -d $domain > $subdomain_path/found_subdomain.txt
+
+#assetfinder 
+echo -e "${WHITE} [+] Executing assetfinder ... ${RESET}"
+assetfinder $domain | grep $domain >> $subdomain_path/found_subdomain.txt
+
+#finding alive subdomains (HTTPROBE)
+echo -e "${WHITE} [+] Finding alive subdomains (HTTPROBE) ... ${RESET}" 
+cat $subdomain_path/found_subdomain.txt | grep $domain | sort -u | httprobe -prefer-https | grep https | sed 's/https\?:\/\///' | tee -a $subdomain_path/alive_subdomains.txt
+
+#screenshot of alive subdomains (GOWITNESS)
+echo -e "${WHITE} [+] Taking screenshots of alive subdomains (GOWITNESS) ... ${RESET}" 
+gowitness file -f $subdomain_path/found_subdomain.txt -P $screenshot_path/ --no-http
+echo -e "$LINE"
+
+echo -e "${YELLOW}
+   ___  ___   ___  ___    _   _   _  ___ _  ___ _ 
+  / __|/ _ \ / _ \|   \  | | | | | |/ __| |/ / | |
+ | (_ | (_) | (_) | |) | | |_| |_| | (__| ' <|_|_|
+  \___|\___/ \___/|___/  |____\___/ \___|_|\_(_|_)
+${RESET}"
+echo -e "$LINE"
